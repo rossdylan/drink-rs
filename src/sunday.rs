@@ -5,13 +5,9 @@ use std::str;
 use std::str::FromStr;
 
 
-#[derive(Debug,Clone,Copy,PartialEq)]
-pub enum Machine {
-    LittleDrink,
-    BigDrink,
-    Snack
-}
-
+/// Type for all sunday protocol commands. Each command has its arguments
+/// contained within it. If you are extending the sunday protocol you will need
+/// to add entries here.
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub enum Command<'a> {
     USER{username: &'a str},
@@ -27,6 +23,20 @@ pub enum Command<'a> {
 }
 
 
+/// Define the possible drink machines. If there is a new drink machine a new
+/// enum entry should be added here.
+/// NOTE: This should probably be generated from a config file.
+#[derive(Debug,Clone,Copy,PartialEq)]
+pub enum Machine {
+    LittleDrink,
+    BigDrink,
+    Snack,
+    Unknown,
+}
+
+/// Define the pairing between a string alias for a drink machine, and the
+/// enum entry for that machine. If there is a new drink machine, a new pairing
+/// must be added here.
 pub fn machine_from_str(string : &str) -> Result<Machine, &str> {
     match string {
         "ld"    => Ok(Machine::LittleDrink),
@@ -36,6 +46,8 @@ pub fn machine_from_str(string : &str) -> Result<Machine, &str> {
     }
 }
 
+
+/// Parse a number into a unsigned 64bit integer
 named!(number<u64>,
     map_res!(
         map_res!(
@@ -47,6 +59,7 @@ named!(number<u64>,
 );
 
 
+/// Parse the USER command and turn it into an instance of Command::USER
 named!(parse_user <&[u8], Command>,
     chain!(
         tag!("USER ") ~
@@ -60,6 +73,7 @@ named!(parse_user <&[u8], Command>,
 );
 
 
+/// Parse the PASS command and turn it into an instance of Command::PASS
 named!(parse_pass <&[u8], Command>,
     chain!(
         tag!("PASS ") ~
@@ -73,6 +87,7 @@ named!(parse_pass <&[u8], Command>,
 );
 
 
+/// Parse the IBUTTON command and turn it into an instance of Command::IBUTTON
 named!(parse_ibutton <&[u8], Command>,
     chain!(
         tag!("IBUTTON ") ~
@@ -84,6 +99,9 @@ named!(parse_ibutton <&[u8], Command>,
         }}));
 
 
+/// Parse the MACHINE command and turn it into an instance of Command::MACHINE
+/// If you are adding a new drink machine you will need to add the alias as a
+/// tag here.
 named!(parse_machine <&[u8], Command>,
     chain!(
        tag!("MACHINE ") ~
@@ -100,6 +118,7 @@ named!(parse_machine <&[u8], Command>,
 );
 
 
+/// Parse the STAT command and turn it into an instance of Command::STAT
 named!(parse_stat <&[u8], Command>,
     chain!(
         tag!("STAT") ~
@@ -109,6 +128,8 @@ named!(parse_stat <&[u8], Command>,
 );
 
 
+/// Parse the GETBALANCE command and turn it into an instance of
+/// Command::GETBALANCE
 named!(parse_getbalance <&[u8], Command>,
     chain!(
         tag!("GETBALANCE") ~
@@ -118,6 +139,8 @@ named!(parse_getbalance <&[u8], Command>,
 );
 
 
+/// Parse the DROP command and turn it into an instance of Command::DROP
+/// By default the delay int will be set to zero if not specified.
 named!(parse_drop <&[u8], Command>,
     chain!(
         tag!("DROP ") ~
@@ -133,6 +156,8 @@ named!(parse_drop <&[u8], Command>,
 );
 
 
+/// Parse the SENDCREDITS command and turn it into an instance of
+/// Command::SENDCREDITS
 named!(parse_sendcredits <&[u8], Command>,
     chain!(
         tag!("SENDCREDITS ") ~
@@ -148,12 +173,16 @@ named!(parse_sendcredits <&[u8], Command>,
 );
 
 
+/// Parse the UPTIME command and turn it into an instance of Command::UPTIME
 named!(parse_uptime <&[u8], Command>,
        chain!(
            tag!("UPTIME") ~
            tag!("\n"),
            || {Command::UPTIME}));
 
+
+/// The full sunday parser, this combines all the individual command parsers
+/// into a single parser that outputs a Command.
 named!(parse_sunday <&[u8], Command>,
        alt!(parse_uptime        |
             parse_drop          |
@@ -165,6 +194,10 @@ named!(parse_sunday <&[u8], Command>,
             parse_user          |
             parse_sendcredits));
 
+
+/// Run the parser on an array of chars (u8) and turn the nom IResult into
+/// a simple Option type. If parsing fails None is output, if it succeeds it
+/// will return Some(Command).
 pub fn parse_sunday_line(input: &[u8]) -> Option<Command> {
     match parse_sunday(input) {
         IResult::Done(_, res) => Some(res),
